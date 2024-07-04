@@ -1,6 +1,6 @@
 ---
-layout: default
-title: test post title 
+layout: post
+title: "test post title"
 ---
 
 
