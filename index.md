@@ -1,10 +1,12 @@
 ---
-layout: default
+title: Home
 ---
+
 
 woop
 
 boop
 
+blah blah
 
 
