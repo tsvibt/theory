@@ -1,2 +1,10 @@
 
+body {
+   background-color: #333333; 
+   font-family: 'Georgia';
+   color: white; 
+   max-width: 1000px; 
+   margin: 0 auto; 
+   padding: 20px; 
+}
 
