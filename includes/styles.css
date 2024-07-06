@@ -9,4 +9,11 @@ body {
 }
 
 
+a {
+   color: rgb(220,255,220); 
+}
+
+a:visited {
+   color: rgb(255,220,220); 
+}
 
