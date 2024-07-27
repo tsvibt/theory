@@ -1,0 +1,67 @@
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>For longterm progress, overhaul key elements ASAP (OKEA)</title>
+       <link href="../includes/styles.css" rel="stylesheet">
+   </head>
+   <body>
+          <script src="../includes/script.js"></script>
+          <h1 id="shorter-summary">Shorter summary</h1>
+<p>Abhor <a href="https://en.wikipedia.org/wiki/Technical_debt">technical debt</a>. </p>
+<h1 id="short-summary">Short summary</h1>
+<p>To do the whole thing right and fast, do important bits of it right, right now. </p>
+<h1 id="summary">Summary</h1>
+<p>In a large, complex designed system that is developing, many <a href="https://tsvibt.blogspot.com/2022/08/structure-creativity-and-novelty.html#1-elements-and-structure">elements</a> will play key roles in the system's current and future functioning. In the short term, overhauling such a key element will require a lot of work and have little benefit. In the long term, delaying overhauling a key element causes massive cascading delays, gridlocks, and waste. Therefore to maximize longterm developmental progress, prioritize overhauling key elements.</p>
+<h1 id="what-is-okea">What is OKEA?</h1>
+<h2 id="what-are-key-elements">What are key elements?</h2>
+<p>Key elements (aka "loadbearing" elements) are elements that have some combination of </p>
+<ol>
+<li>relating to many other elements in the system; and </li>
+<li>mattering a lot for the developmental process of, and/or final functioning of, the system.</li>
+</ol>
+<p>Examples: Architecture. Basic building blocks. Vision of what the system should be like. Core engines.</p>
+<p>Non-examples:</p>
+<ul>
+<li>Anything that's noncentral to the system's purpose (misses criterion 2). E.g.:<ul>
+<li>The specific data format of the logging files of a program. It relates to many elements in the system (getting criterion 1): any of the elements might be logged, so in principle the logging could demand that some other element be refactored to be logged more efficiently and cleanly. But logging can often be pretty rough-and-ready while doing its job, so the specific format doesn't matter much.</li>
+<li>The specific axiomatization of some mathematical idea that's mainly for illustrating a more central philosophical idea. </li>
+</ul>
+</li>
+<li>Anything that's already well-factored out from the system (misses criterion 1). E.g.:<ul>
+<li>Which font and color you use in your text editor. (It may affect your work somewhat and therefore be worth prioritizing, getting criterion 2, but it's not a key element.)</li>
+<li>Some glue code. (The presence of glue code might indicate problems in the elements being glued. Some other glue code might be applied in a lot of contexts or have quirks that radiate out through applications to affect a lot of elements, and therefore is not well-factored from the system. But some glue code just relates to the few elements it glues; it might not be pretty or easily modified, but it isn't key and often doesn't need to be prioritized for overhauling.</li>
+</ul>
+</li>
+</ul>
+<h2 id="what-is-overhauling">What is overhauling?</h2>
+<p>Majorly redesigning/replacing, refactoring, resituating (rearranging relations with other elements). In general, resolving <a href="https://tsvibt.blogspot.com/2023/03/provisionality.html">provisionality</a>.</p>
+<h2 id="okeaing">Okeaing</h2>
+<p>OKEA (overhauling key elements ASA) is pronounced /oʊˈkiːə/, oh-KEY-uh. In addition to being a slogan or suggestion, it also can be a transitive verb. To okea something is to overhaul it (where it is a key element, and the overhauling is given urgency/priority). E.g. "Oh I misunderstood what you meant, in that case we should okea our visions for this project because we weren't on the same page.".</p>
+<p>Okeaing looks like:</p>
+<ul>
+<li>Question basic assumptions. Analyze loadbearing concepts and their relations.</li>
+<li>If there are key forces pulling on a key element in opposite directions, refactor that element (or the forces). </li>
+<li>If there's a major defeater for some current configuration of the system being good, prioritize dealing with that defeater. Treat the disease, not the symptom; don't make a patch for the major defeater, start figuring out how to cure it.</li>
+</ul>
+<h1 id="why-okea">Why OKEA?</h1>
+<p>Why prioritize overhauling some key element K?</p>
+<ul>
+<li>Avoid wasting time on optimizing other elements in a way that's tailored to the current version of K, since that version is wrong.</li>
+<li>Other elements can start coadapting sooner to the correct version of K.</li>
+<li>Get more data about what possible versions of K there are, and what are the implications for realizing a given possible version of K. <ul>
+<li>See what other key elements tend to break, even if they were fine given specifically the current configuration of the key element in question. You might not even have been aware that some E was importantly related to K. </li>
+<li>See what demands are being made of K, that a replacement for K should meet. </li>
+<li>See what doesn't break about K and its context--this might be more stable, more likely to be in future versions of K.</li>
+<li>See how K and its context fail to work, no matter what you try. This points at what is potentially another key element--whatever it is that makes K and its context always fail--which is even more urgently in need of overhauling lest key relations with already-salient elements be swept under the rug. </li>
+</ul>
+</li>
+<li>There's a bias toward not okeaing. Out of <a href="https://en.wikipedia.org/wiki/Cognitive_miser">cognitive miserliness</a>, or wanting to feel productive, or <a href="https://www.lesswrong.com/posts/sP2Hg6uPwpfp3jZJN/lost-purposes">lost purposes</a>, or whatever, we tend to want to stay within the background context of whatever activities we currently do day-to-day. For ambitious purposes, people seem to usually correct for this bias too slowly.</li>
+</ul>
+<h1 id="why-not-okea">Why not OKEA?</h1>
+<p>It's hard and complicated, takes work, requires foresight into unknown territory, and can cause <a href="https://tsvibt.blogspot.com/2023/09/a-hermeneutic-net-for-agency.html#infectious-questioning-and-indras-net">infectious questioning</a>.</p>
+   </body>
+   </html>
+   
