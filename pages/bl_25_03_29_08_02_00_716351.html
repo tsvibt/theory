@@ -1,0 +1,18 @@
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>JIT flip</title>
+       <link href="../includes/styles.css" rel="stylesheet">
+   </head>
+   <body>
+          <script src="../includes/script.js"></script>
+          <p>We often figure things out just in time, like <a href="https://en.wikipedia.org/wiki/Just-in-time_compilation">just-in-time compilation</a>. If doing Z would require doing X and then doing Y, we don't necessarily figure out how to do both X and Y, and then check whether we'll be able to do both X and Y, and then prepare to do both X and Y, and only <em>then</em> actually do X and then Y. We'll often just start doing X, and in the process figure out whether and how we can do X, and prepare elements of doing X, and also start getting info about Y. This makes sense and eez gewd. </p>
+<p>But here's one way this pattern can cause a problem: Say that, over and over, you think "maybe doing Z (X + Y) would be good here", so you keep trying X over and over, in order to build up to Z, because starting to do X is how you JIT-do Z. And you bang your head against X a bit, try a few more things, and then give up. Later, you sorta succeed at an MVP of X. ...But then you start doing Y and realize that Y is much harder than you thought it would be. Now your work on X might be wasted; you still can't get to Z. </p>
+<p>So, maybe sometimes flip the JIT; skip to another part of Z and try that for a bit. </p>
+<p>The JIT flip problem is an example of non-aggregation of desire--your different selves at different times who hold the Z supergoal don't communicate to each other that Y is a necessary subgoal with a lot of uncertainty around its feasibility, which should therefore be explored with fairly high priority to resolve some of the uncertainty. The JIT flip is related to <a href="https://tsvibt.github.io/theory/pages/bl_24_07_27_07_43_32_191325.html">overhauling key elements ASAP</a>.</p>
+   </body>
+   </html>
+   
