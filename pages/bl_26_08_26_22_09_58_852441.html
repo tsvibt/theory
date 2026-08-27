@@ -9,7 +9,9 @@
    </head>
    <body>
           <script src="../includes/script.js"></script>
-          <div id="sdw"></div>
+          <p>These widgets are written by Fable.</p>
+<p>First widget:</p>
+<div id="sdw"></div>
 <script>
 // Interactive scale-vs-power widget for sd-rarity-table.md.
 // Rendered by tools/serve_reports.py (which serves this file relatively);
@@ -39,7 +41,8 @@
   var SMAX = 5, DECADES = 5;   // x axis 0..SMAX SDs; y axis 10^0 .. 10^-DECADES
   var KEY = 'omni-sdw-state';
 
-  var state = { curves: [{ m: 1.5, k: 4 }, { m: 10, k: 4 }] };
+  var state = { curves: [{ m: 1.5, k: 4 }, { m: 10, k: 4 }],
+                points: [{ s: 0.5 }, { s: 2.5 }] };
   try {
     var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (saved && Array.isArray(saved.curves) && saved.curves.length) {
@@ -423,6 +426,7 @@
 })();
 
 </script>
+<p>Second widget:</p>
 <div id="sdw2"></div>
 <script>
 // Second interactive widget for sd-rarity-table.md: relative-scaling curves.
