@@ -9,7 +9,7 @@
    </head>
    <body>
           <script src="../includes/script.js"></script>
-          <div id="sdw" style="margin: 1em 0px; background: rgb(255, 255, 255); color: rgb(26, 26, 26); padding: 12px; border-radius: 8px; border: 1px solid rgb(208, 211, 216); display: inline-block; max-width: 100%;"></div>
+          <div id="sdw"></div>
 <script>
 // Interactive scale-vs-power widget for sd-rarity-table.md.
 // Rendered by tools/serve_reports.py (which serves this file relatively);
@@ -23,343 +23,354 @@
 (function () {
   var root = document.getElementById('sdw');
   if (!root) return;
-<p>// Numerical Recipes erfcc: fractional error &lt; 1.2e-7 everywhere
-function erfc(x) {
-var z = Math.abs(x), t = 1 / (1 + z / 2);
-var ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 +
-t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 +
-t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
-return x &gt;= 0 ? ans : 2 - ans;
-}
-function tail(x) { return 0.5 * erfc(x / Math.SQRT2); }</p>
-<p>var COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#9467bd', '#ff7f0e',
-'#8c564b', '#e377c2', '#17becf'];
-var SMAX = 5, DECADES = 5;   // x axis 0..SMAX SDs; y axis 10^0 .. 10^-DECADES
-var KEY = 'omni-sdw-state';</p>
-<p>var state = { curves: [{ m: 1.5, k: 4 }, { m: 10, k: 4 }] };
-try {
-var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-if (saved &amp;&amp; Array.isArray(saved.curves) &amp;&amp; saved.curves.length) {
-// migrate pre-per-curve state: curves inherit the old global target level
-saved.curves.forEach(function (c) {
-if (typeof c.k !== 'number') c.k = typeof saved.k === 'number' ? saved.k : 4;
-});
-state = { curves: saved.curves };
-state.points = (Array.isArray(saved.points) ? saved.points : [])
-.filter(function (p) { return p &amp;&amp; typeof p.s === 'number'; });
-}
-} catch (e) { }
-if (!Array.isArray(state.points)) state.points = [];
-function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { } }</p>
-<p>// ---- layout ----
-// whole widget on a fixed white card (per Tsvi), independent of viewer theme
-root.style.margin = '1em 0';
-root.style.background = '#ffffff';
-root.style.color = '#1a1a1a';
-root.style.padding = '12px';
-root.style.borderRadius = '8px';
-root.style.border = '1px solid #d0d3d8';
-root.style.display = 'inline-block';
-root.style.maxWidth = '100%';
-var style = document.createElement('style');
-style.textContent =
-'#sdw input.nospin::-webkit-outer-spin-button,' +
-'#sdw input.nospin::-webkit-inner-spin-button' +
-' { -webkit-appearance: none; margin: 0; }\n' +
-'#sdw input.nospin { -moz-appearance: textfield; appearance: textfield; }';
-root.appendChild(style);
-var controls = document.createElement('div');
-var canvas = document.createElement('canvas');
-canvas.width = 920; canvas.height = 560;
-canvas.style.maxWidth = '100%';
-canvas.style.height = 'auto';
-root.appendChild(controls);
-root.appendChild(canvas);
-var ctx = canvas.getContext('2d');</p>
-<p>function styleRow(el) {
-el.style.display = 'flex'; el.style.alignItems = 'center';
-el.style.gap = '8px'; el.style.margin = '4px 0'; el.style.flexWrap = 'wrap';
-}
-function numInput(value, step, width) {
-var n = document.createElement('input');
-n.type = 'number'; n.step = step; n.value = value;
-n.style.width = (width || 46) + 'px';
-return n;
-}
-[118;1:3u  function slider(min, max, step, value) {
-var s = document.createElement('input');
-s.type = 'range'; s.min = min; s.max = max; s.step = step; s.value = value;
-s.style.width = '220px';
-return s;
-}</p>
-<p>function clampK(v) { return Math.min(7, Math.max(0.5, v)); }
-function clampM(v) { return Math.min(1000, Math.max(1.01, v)); }</p>
-<p>function buildControls() {
-controls.innerHTML = '';</p>
-<pre><code>state.curves.forEach(function (curve, i) {
-  var row = document.createElement('div');
-  styleRow(row);
-  var swatch = document.createElement('span');
-  swatch.style.display = 'inline-block';
-  swatch.style.width = '14px'; swatch.style.height = '14px';
-  swatch.style.background = COLORS[i % COLORS.length];
-  swatch.style.borderRadius = '3px';
-  var label = document.createElement('span');
-  label.textContent = 'multiplier ×';
-  var mNum = numInput(curve.m, 'any');
-  mNum.classList.add('nospin');  // no up/down spinners (k inputs keep theirs)
-  // slider is log10(M) so the whole 1.01..1000 range is usable
-  var mSlide = slider(0.005, 3, 0.005, Math.log10(curve.m));
-  var kLabel = document.createElement('span');
-  kLabel.textContent = 'above +';
-  var kNum = numInput(curve.k, 0.1);
-  var kSlide = slider(0.5, 7, 0.1, curve.k);
-  var kUnit = document.createElement('span');
-  kUnit.textContent = 'SD';
-  var del = document.createElement('button');
-  del.textContent = '✕';
-  del.title = 'Delete this curve';
-  del.style.cursor = 'pointer';
-  mNum.addEventListener('input', function () {
-    var v = parseFloat(mNum.value);
-    if (!isFinite(v)) return;
-    curve.m = clampM(v); mSlide.value = Math.log10(curve.m); save(); draw();
-  });
-  mSlide.addEventListener('input', function () {
-    var m = Math.pow(10, parseFloat(mSlide.value));
-    curve.m = m &gt;= 10 ? Math.round(m) : Math.round(m * 10) / 10;
-    mNum.value = curve.m; save(); draw();
-  });
-  kNum.addEventListener('input', function () {
-    var v = parseFloat(kNum.value);
-    if (!isFinite(v)) return;
-    curve.k = clampK(v); kSlide.value = curve.k; save(); draw();
-  });
-  kSlide.addEventListener('input', function () {
-    curve.k = parseFloat(kSlide.value); kNum.value = curve.k; save(); draw();
-  });
-  del.addEventListener('click', function () {
-    state.curves.splice(i, 1);
-    if (!state.curves.length) state.curves.push({ m: 1.5, k: 4 });
-    save(); buildControls(); draw();
-  });
-  row.appendChild(swatch); row.appendChild(label); row.appendChild(mNum);
-  row.appendChild(mSlide);
-  row.appendChild(kLabel); row.appendChild(kNum); row.appendChild(kUnit);
-  row.appendChild(kSlide); row.appendChild(del);
-  controls.appendChild(row);
-});
 
-state.points.forEach(function (pt, i) {
-  var row = document.createElement('div');
-  styleRow(row);
-  var label = document.createElement('span');
-  label.textContent = 'point at +';
-  var sNum = numInput(pt.s, 0.1);
-  var sSlide = slider(0, 5, 0.1, pt.s);
-  var unit = document.createElement('span');
-  unit.textContent = 'SD (power)';
-  var del = document.createElement('button');
-  del.textContent = '✕';
-  del.title = 'Delete this point';
-  del.style.cursor = 'pointer';
-  sNum.addEventListener('input', function () {
-    var v = parseFloat(sNum.value);
-    if (!isFinite(v)) return;
-    pt.s = Math.min(5, Math.max(0, v)); sSlide.value = pt.s; save(); draw();
-  });
-  sSlide.addEventListener('input', function () {
-    pt.s = parseFloat(sSlide.value); sNum.value = pt.s; save(); draw();
-  });
-  del.addEventListener('click', function () {
-    state.points.splice(i, 1);
-    save(); buildControls(); draw();
-  });
-  row.appendChild(label); row.appendChild(sNum); row.appendChild(unit);
-  row.appendChild(sSlide); row.appendChild(del);
-  controls.appendChild(row);
-});
+  // Numerical Recipes erfcc: fractional error < 1.2e-7 everywhere
+  function erfc(x) {
+    var z = Math.abs(x), t = 1 / (1 + z / 2);
+    var ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 +
+      t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 +
+      t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? ans : 2 - ans;
+  }
+  function tail(x) { return 0.5 * erfc(x / Math.SQRT2); }
 
-var addRow = document.createElement('div');
-styleRow(addRow);
-var add = document.createElement('button');
-add.textContent = 'add curve';
-add.style.cursor = 'pointer';
-add.addEventListener('click', function () {
-  var have = state.curves.map(function (c) { return c.m; });
-  var next = [1.5, 10, 100, 1000, 2, 3, 5, 30].find(function (m) {
-    return have.indexOf(m) &lt; 0;
-  }) || 10;
-  var lastK = state.curves.length ? state.curves[state.curves.length - 1].k : 4;
-  state.curves.push({ m: next, k: lastK });
-  save(); buildControls(); draw();
-});
-var addPt = document.createElement('button');
-addPt.textContent = 'add point';
-addPt.style.cursor = 'pointer';
-addPt.addEventListener('click', function () {
-  var have = state.points.map(function (p) { return p.s; });
-  var next = [1, 2, 3, 4, 5, 0.5, 1.5, 2.5, 3.5, 4.5].find(function (s) {
-    return have.indexOf(s) &lt; 0;
-  });
-  state.points.push({ s: typeof next === 'number' ? next : 2.5 });
-  save(); buildControls(); draw();
-});
-addRow.appendChild(add);
-addRow.appendChild(addPt);
-controls.appendChild(addRow);
-</code></pre>
-<p>}</p>
-<p>// &quot;10^exp&quot; tick label drawn with a real raised exponent (unicode superscript
-// glyphs render too small); right-aligned so it ends at (xRight, yBase)
-function drawPow10(exp, xRight, yBase, color) {
-var base = '10', e = String(exp);
-ctx.fillStyle = color;
-ctx.textAlign = 'left';
-ctx.font = '15px sans-serif';
-var wBase = ctx.measureText(base).width;
-ctx.font = '12px sans-serif';
-var wExp = ctx.measureText(e).width;
-var x = xRight - wBase - wExp;
-ctx.font = '15px sans-serif';
-ctx.fillText(base, x, yBase);
-ctx.font = '12px sans-serif';
-ctx.fillText(e, x + wBase + 1, yBase - 7);
-ctx.font = '13px sans-serif';
-}</p>
-<p>function draw() {
-var fg = '#1a1a1a', border = '#d0d3d8', bg = '#ffffff';
-var W = canvas.width, H = canvas.height;
-var ml = 70, mr = 100, mt = 34, mb = 48;
-var pw = W - ml - mr, ph = H - mt - mb;
-function X(s) { return ml + s / SMAX * pw; }
-function Y(f) { return mt + (-Math.log10(f)) / DECADES * ph; }</p>
-<pre><code>ctx.clearRect(0, 0, W, H);
-ctx.fillStyle = bg;
-ctx.fillRect(0, 0, W, H);
-ctx.font = '13px sans-serif';
+  var COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#9467bd', '#ff7f0e',
+                '#8c564b', '#e377c2', '#17becf'];
+  var SMAX = 5, DECADES = 5;   // x axis 0..SMAX SDs; y axis 10^0 .. 10^-DECADES
+  var KEY = 'omni-sdw-state';
 
-// grid: x integers, y decades (with faint minor log lines)
-ctx.lineWidth = 1;
-for (var s = 0; s &lt;= SMAX; s++) {
-  ctx.strokeStyle = border;
-  ctx.beginPath(); ctx.moveTo(X(s), mt); ctx.lineTo(X(s), mt + ph); ctx.stroke();
-  ctx.fillStyle = fg; ctx.textAlign = 'center';
-  ctx.fillText(String(s), X(s), mt + ph + 18);
-}
-for (var d = 0; d &lt;= DECADES; d++) {
-  var f0 = Math.pow(10, -d);
-  ctx.strokeStyle = border;
-  ctx.beginPath(); ctx.moveTo(ml, Y(f0)); ctx.lineTo(ml + pw, Y(f0)); ctx.stroke();
-  drawPow10(-d, ml - 8, Y(f0) + 5, fg);
-  if (d &lt; DECADES) {
-    ctx.strokeStyle = border;
-    ctx.globalAlpha = 0.35;
-    for (var m2 = 2; m2 &lt;= 9; m2++) {
-      var fm = m2 * Math.pow(10, -d - 1);
-      ctx.beginPath(); ctx.moveTo(ml, Y(fm)); ctx.lineTo(ml + pw, Y(fm)); ctx.stroke();
+  var state = { curves: [{ m: 1.5, k: 4 }, { m: 10, k: 4 }] };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && Array.isArray(saved.curves) && saved.curves.length) {
+      // migrate pre-per-curve state: curves inherit the old global target level
+      saved.curves.forEach(function (c) {
+        if (typeof c.k !== 'number') c.k = typeof saved.k === 'number' ? saved.k : 4;
+      });
+      state = { curves: saved.curves };
+      state.points = (Array.isArray(saved.points) ? saved.points : [])
+        .filter(function (p) { return p && typeof p.s === 'number'; });
     }
-    ctx.globalAlpha = 1;
-  }
-}
-ctx.strokeStyle = fg;
-ctx.strokeRect(ml, mt, pw, ph);
+  } catch (e) { }
+  if (!Array.isArray(state.points)) state.points = [];
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { } }
 
-// axis titles
-ctx.fillStyle = fg; ctx.textAlign = 'center';
-ctx.fillText('power s: SDs the intervention adds to the people treated',
-             ml + pw / 2, H - 10);
-ctx.save();
-ctx.translate(16, mt + ph / 2); ctx.rotate(-Math.PI / 2);
-ctx.fillText('fraction of population treated', 0, 0);
-ctx.restore();
-ctx.fillText(&quot;fraction treated to get ×M more people above the curve's +k SD level&quot;,
-             ml + pw / 2, 18);
+  // ---- layout ----
+  // whole widget on a fixed white card (per Tsvi), independent of viewer theme
+  root.style.margin = '1em 0';
+  root.style.background = '#ffffff';
+  root.style.color = '#1a1a1a';
+  root.style.padding = '12px';
+  root.style.borderRadius = '8px';
+  root.style.border = '1px solid #d0d3d8';
+  root.style.display = 'inline-block';
+  root.style.maxWidth = '100%';
+  var style = document.createElement('style');
+  style.textContent =
+    '#sdw input.nospin::-webkit-outer-spin-button,' +
+    '#sdw input.nospin::-webkit-inner-spin-button' +
+    ' { -webkit-appearance: none; margin: 0; }\n' +
+    '#sdw input.nospin { -moz-appearance: textfield; appearance: textfield; }';
+  root.appendChild(style);
+  var controls = document.createElement('div');
+  var canvas = document.createElement('canvas');
+  canv[118;1:3uas.width = 920; canvas.height = 560;
+  canvas.style.maxWidth = '100%';
+  canvas.style.height = 'auto';
+  root.appendChild(controls);
+  root.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
 
-var fmin = Math.pow(10, -DECADES);
-state.curves.forEach(function (curve, i) {
-  var c = COLORS[i % COLORS.length];
-  var pk = tail(curve.k);
-  ctx.strokeStyle = c; ctx.lineWidth = 2;
-  ctx.beginPath();
-  var started = false, lastPt = null;
-  for (var j = 1; j &lt;= 500; j++) {
-    var sv = j / 500 * SMAX;
-    var denom = tail(curve.k - sv) - pk;
-    var f = (curve.m - 1) * pk / denom;
-    if (f &gt; 1) continue;           // too weak at any scale
-    var fc = Math.max(f, fmin);    // clip at the bottom decade
-    var x = X(sv), y = Y(fc);
-    if (!started) { ctx.moveTo(x, y); started = true; }
-    else ctx.lineTo(x, y);
-    lastPt = [x, y];
-    if (f &lt; fmin) break;           // exited the bottom; stop drawing
+  function styleRow(el) {
+    el.style.display = 'flex'; el.style.alignItems = 'center';
+    el.style.gap = '8px'; el.style.margin = '4px 0'; el.style.flexWrap = 'wrap';
   }
-  ctx.stroke();
-  if (lastPt) {
-    ctx.fillStyle = c;
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 13px sans-serif';
-    var lbl = curve.m + '× @+' + curve.k;
-    // keep the label inside the canvas
-    var lx = Math.min(lastPt[0] + 5, W - 6 - ctx.measureText(lbl).width);
-    ctx.fillText(lbl, lx, lastPt[1] - 5);
-    ctx.font = '13px sans-serif';
+  function numInput(value, step, width) {
+    var n = document.createElement('input');
+    n.type = 'number'; n.step = step; n.value = value;
+    n.style.width = (width || 46) + 'px';
+    return n;
   }
-});
+  function slider(min, max, step, value) {
+    var s = document.createElement('input');
+    s.type = 'range'; s.min = min; s.max = max; s.step = step; s.value = value;
+    s.style.width = '220px';
+    return s;
+  }
 
-// ---- points: dots on each curve at the chosen powers, adjacent dots on
-// the same curve joined by a dashed line labeled with the tradeoff ----
-function fOf(curve, s) {
-  var pk2 = tail(curve.k);
-  return (curve.m - 1) * pk2 / (tail(curve.k - s) - pk2);
-}
-var ptSs = state.points.map(function (p) { return p.s; })
-  .sort(function (a, b) { return a - b; });
-state.curves.forEach(function (curve, i) {
-  var c = COLORS[i % COLORS.length];
-  var onCurve = ptSs
-    .map(function (s) { return { s: s, f: fOf(curve, s) }; })
-    .filter(function (o) {
-      return o.s &gt; 0 &amp;&amp; o.s &lt;= SMAX &amp;&amp; o.f &gt; 0 &amp;&amp; o.f &lt;= 1 &amp;&amp; o.f &gt;= fmin;
+  function clampK(v) { return Math.min(7, Math.max(0.5, v)); }
+  function clampM(v) { return Math.min(1000, Math.max(1.01, v)); }
+
+  function buildControls() {
+    controls.innerHTML = '';
+
+    state.curves.forEach(function (curve, i) {
+      var row = document.createElement('div');
+      styleRow(row);
+      var swatch = document.createElement('span');
+      swatch.style.display = 'inline-block';
+      swatch.style.width = '14px'; swatch.style.height = '14px';
+      swatch.style.background = COLORS[i % COLORS.length];
+      swatch.style.borderRadius = '3px';
+      var label = document.createElement('span');
+      label.textContent = 'multiplier ×';
+      var mNum = numInput(curve.m, 'any');
+      mNum.classList.add('nospin');  // no up/down spinners (k inputs keep theirs)
+      // slider is log10(M) so the whole 1.01..1000 range is usable
+      var mSlide = slider(0.005, 3, 0.005, Math.log10(curve.m));
+      var kLabel = document.createElement('span');
+      kLabel.textContent = 'above +';
+      var kNum = numInput(curve.k, 0.1);
+      var kSlide = slider(0.5, 7, 0.1, curve.k);
+      var kUnit = document.createElement('span');
+      kUnit.textContent = 'SD';
+      var del = document.createElement('button');
+      del.textContent = '✕';
+      del.title = 'Delete this curve';
+      del.style.cursor = 'pointer';
+      mNum.addEventListener('input', function () {
+        var v = parseFloat(mNum.value);
+        if (!isFinite(v)) return;
+        curve.m = clampM(v); mSlide.value = Math.log10(curve.m); save(); draw();
+      });
+      mSlide.addEventListener('input', function () {
+        var m = Math.pow(10, parseFloat(mSlide.value));
+        curve.m = m >= 10 ? Math.round(m) : Math.round(m * 10) / 10;
+        mNum.value = curve.m; save(); draw();
+      });
+      kNum.addEventListener('input', function () {
+        var v = parseFloat(kNum.value);
+        if (!isFinite(v)) return;
+        curve.k = clampK(v); kSlide.value = curve.k; save(); draw();
+      });
+      kSlide.addEventListener('input', function () {
+        curve.k = parseFloat(kSlide.value); kNum.value = curve.k; save(); draw();
+      });
+      del.addEventListener('click', function () {
+        state.curves.splice(i, 1);
+        if (!state.curves.length) state.curves.push({ m: 1.5, k: 4 });
+        save(); buildControls(); draw();
+      });
+      row.appendChild(swatch); row.appendChild(label); row.appendChild(mNum);
+      row.appendChild(mSlide);
+      row.appendChild(kLabel); row.appendChild(kNum); row.appendChild(kUnit);
+      row.appendChild(kSlide); row.appendChild(del);
+      controls.appendChild(row);
     });
-  // dashed connectors with tradeoff labels
-  ctx.setLineDash([5, 4]);
-  ctx.strokeStyle = c; ctx.lineWidth = 1.4;
-  for (var a = 0; a + 1 &lt; onCurve.length; a++) {
-    var p1 = onCurve[a], p2 = onCurve[a + 1];
-    var x1 = X(p1.s), y1 = Y(p1.f), x2 = X(p2.s), y2 = Y(p2.f);
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    var ds = Math.round((p2.s - p1.s) * 100) / 100;
-    var jj = Math.round(Math.log10(p1.f / p2.f) * 10) / 10;
-    var txt = ds + ' SD stronger; 10^' + jj + ' x less scaling';
-    ctx.fillStyle = c;
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.save();  // draw the label parallel to the connector, just above it
-    ctx.translate((x1 + x2) / 2, (y1 + y2) / 2);
-    ctx.rotate(Math.atan2(y2 - y1, x2 - x1));
-    ctx.fillText(txt, 0, -6);
-    ctx.restore();
+
+    state.points.forEach(function (pt, i) {
+      var row = document.createElement('div');
+      styleRow(row);
+      var label = document.createElement('span');
+      label.textContent = 'point at +';
+      var sNum = numInput(pt.s, 0.1);
+      var sSlide = slider(0, 5, 0.1, pt.s);
+      var unit = document.createElement('span');
+      unit.textContent = 'SD (power)';
+      var del = document.createElement('button');
+      del.textContent = '✕';
+      del.title = 'Delete this point';
+      del.style.cursor = 'pointer';
+      sNum.addEventListener('input', function () {
+        var v = parseFloat(sNum.value);
+        if (!isFinite(v)) return;
+        pt.s = Math.min(5, Math.max(0, v)); sSlide.value = pt.s; save(); draw();
+      });
+      sSlide.addEventListener('input', function () {
+        pt.s = parseFloat(sSlide.value); sNum.value = pt.s; save(); draw();
+      });
+      del.addEventListener('click', function () {
+        state.points.splice(i, 1);
+        save(); buildControls(); draw();
+      });
+      row.appendChild(label); row.appendChild(sNum); row.appendChild(unit);
+      row.appendChild(sSlide); row.appendChild(del);
+      controls.appendChild(row);
+    });
+
+    var addRow = document.createElement('div');
+    styleRow(addRow);
+    var add = document.createElement('button');
+    add.textContent = 'add curve';
+    add.style.cursor = 'pointer';
+    add.addEventListener('click', function () {
+      var have = state.curves.map(function (c) { return c.m; });
+      var next = [1.5, 10, 100, 1000, 2, 3, 5, 30].find(function (m) {
+        return have.indexOf(m) < 0;
+      }) || 10;
+      var lastK = state.curves.length ? state.curves[state.curves.length - 1].k : 4;
+      state.curves.push({ m: next, k: lastK });
+      save(); buildControls(); draw();
+    });
+    var addPt = document.createElement('button');
+    addPt.textContent = 'add point';
+    addPt.style.cursor = 'pointer';
+    addPt.addEventListener('click', function () {
+      var have = state.points.map(function (p) { return p.s; });
+      var next = [1, 2, 3, 4, 5, 0.5, 1.5, 2.5, 3.5, 4.5].find(function (s) {
+        return have.indexOf(s) < 0;
+      });
+      state.points.push({ s: typeof next === 'number' ? next : 2.5 });
+      save(); buildControls(); draw();
+    });
+    addRow.appendChild(add);
+    addRow.appendChild(addPt);
+    controls.appendChild(addRow);
+  }
+
+  // "10^exp" tick label drawn with a real raised exponent (unicode superscript
+  // glyphs render too small); right-aligned so it ends at (xRight, yBase)
+  function drawPow10(exp, xRight, yBase, color) {
+    var base = '10', e = String(exp);
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.font = '15px sans-serif';
+    var wBase = ctx.measureText(base).width;
+    ctx.font = '12px sans-serif';
+    var wExp = ctx.measureText(e).width;
+    var x = xRight - wBase - wExp;
+    ctx.font = '15px sans-serif';
+    ctx.fillText(base, x, yBase);
+    ctx.font = '12px sans-serif';
+    ctx.fillText(e, x + wBase + 1, yBase - 7);
     ctx.font = '13px sans-serif';
   }
-  ctx.setLineDash([]);
-  // dots on top
-  onCurve.forEach(function (o) {
-    ctx.beginPath();
-    ctx.arc(X(o.s), Y(o.f), 4.5, 0, 2 * Math.PI);
-    ctx.fillStyle = c;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.stroke();
-  });
-});
-</code></pre>
-<p>}</p>
-<p>buildControls();
-draw();
-})();</p>
+
+  function draw() {
+    var fg = '#1a1a1a', border = '#d0d3d8', bg = '#ffffff';
+    var W = canvas.width, H = canvas.height;
+    var ml = 70, mr = 100, mt = 34, mb = 48;
+    var pw = W - ml - mr, ph = H - mt - mb;
+    function X(s) { return ml + s / SMAX * pw; }
+    function Y(f) { return mt + (-Math.log10(f)) / DECADES * ph; }
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = '13px sans-serif';
+
+    // grid: x integers, y decades (with faint minor log lines)
+    ctx.lineWidth = 1;
+    for (var s = 0; s <= SMAX; s++) {
+      ctx.strokeStyle = border;
+      ctx.beginPath(); ctx.moveTo(X(s), mt); ctx.lineTo(X(s), mt + ph); ctx.stroke();
+      ctx.fillStyle = fg; ctx.textAlign = 'center';
+      ctx.fillText(String(s), X(s), mt + ph + 18);
+    }
+    for (var d = 0; d <= DECADES; d++) {
+      var f0 = Math.pow(10, -d);
+      ctx.strokeStyle = border;
+      ctx.beginPath(); ctx.moveTo(ml, Y(f0)); ctx.lineTo(ml + pw, Y(f0)); ctx.stroke();
+      drawPow10(-d, ml - 8, Y(f0) + 5, fg);
+      if (d < DECADES) {
+        ctx.strokeStyle = border;
+        ctx.globalAlpha = 0.35;
+        for (var m2 = 2; m2 <= 9; m2++) {
+          var fm = m2 * Math.pow(10, -d - 1);
+          ctx.beginPath(); ctx.moveTo(ml, Y(fm)); ctx.lineTo(ml + pw, Y(fm)); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    ctx.strokeStyle = fg;
+    ctx.strokeRect(ml, mt, pw, ph);
+
+    // axis titles
+    ctx.fillStyle = fg; ctx.textAlign = 'center';
+    ctx.fillText('power s: SDs the intervention adds to the people treated',
+                 ml + pw / 2, H - 10);
+    ctx.save();
+    ctx.translate(16, mt + ph / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('fraction of population treated', 0, 0);
+    ctx.restore();
+    ctx.fillText("fraction treated to get ×M more people above the curve's +k SD level",
+                 ml + pw / 2, 18);
+
+    var fmin = Math.pow(10, -DECADES);
+    state.curves.forEach(function (curve, i) {
+      var c = COLORS[i % COLORS.length];
+      var pk = tail(curve.k);
+      ctx.strokeStyle = c; ctx.lineWidth = 2;
+      ctx.beginPath();
+      var started = false, lastPt = null;
+      for (var j = 1; j <= 500; j++) {
+        var sv = j / 500 * SMAX;
+        var denom = tail(curve.k - sv) - pk;
+        var f = (curve.m - 1) * pk / denom;
+        if (f > 1) continue;           // too weak at any scale
+        var fc = Math.max(f, fmin);    // clip at the bottom decade
+        var x = X(sv), y = Y(fc);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+        lastPt = [x, y];
+        if (f < fmin) break;           // exited the bottom; stop drawing
+      }
+      ctx.stroke();
+      if (lastPt) {
+        ctx.fillStyle = c;
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 13px sans-serif';
+        var lbl = curve.m + '× @+' + curve.k;
+        // keep the label inside the canvas
+        var lx = Math.min(lastPt[0] + 5, W - 6 - ctx.measureText(lbl).width);
+        ctx.fillText(lbl, lx, lastPt[1] - 5);
+        ctx.font = '13px sans-serif';
+      }
+    });
+
+    // ---- points: dots on each curve at the chosen powers, adjacent dots on
+    // the same curve joined by a dashed line labeled with the tradeoff ----
+    function fOf(curve, s) {
+      var pk2 = tail(curve.k);
+      return (curve.m - 1) * pk2 / (tail(curve.k - s) - pk2);
+    }
+    var ptSs = state.points.map(function (p) { return p.s; })
+      .sort(function (a, b) { return a - b; });
+    state.curves.forEach(function (curve, i) {
+      var c = COLORS[i % COLORS.length];
+      var onCurve = ptSs
+        .map(function (s) { return { s: s, f: fOf(curve, s) }; })
+        .filter(function (o) {
+          return o.s > 0 && o.s <= SMAX && o.f > 0 && o.f <= 1 && o.f >= fmin;
+        });
+      // dashed connectors with tradeoff labels
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = c; ctx.lineWidth = 1.4;
+      for (var a = 0; a + 1 < onCurve.length; a++) {
+        var p1 = onCurve[a], p2 = onCurve[a + 1];
+        var x1 = X(p1.s), y1 = Y(p1.f), x2 = X(p2.s), y2 = Y(p2.f);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        var ds = Math.round((p2.s - p1.s) * 100) / 100;
+        var jj = Math.round(Math.log10(p1.f / p2.f) * 10) / 10;
+        var txt = ds + ' SD stronger; 10^' + jj + ' x less scaling';
+        ctx.fillStyle = c;
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.save();  // draw the label parallel to the connector, just above it
+        ctx.translate((x1 + x2) / 2, (y1 + y2) / 2);
+        ctx.rotate(Math.atan2(y2 - y1, x2 - x1));
+        ctx.fillText(txt, 0, -6);
+        ctx.restore();
+        ctx.font = '13px sans-serif';
+      }
+      ctx.setLineDash([]);
+      // dots on top
+      onCurve.forEach(function (o) {
+        ctx.beginPath();
+        ctx.arc(X(o.s), Y(o.f), 4.5, 0, 2 * Math.PI);
+        ctx.fillStyle = c;
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.stroke();
+      });
+    });
+  }
+
+  buildControls();
+  draw();
+})();
+
 </script>
 
    </body>
