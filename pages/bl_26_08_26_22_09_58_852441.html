@@ -41,7 +41,7 @@
   var SMAX = 5, DECADES = 5;   // x axis 0..SMAX SDs; y axis 10^0 .. 10^-DECADES
   var KEY = 'omni-sdw-state';
 
-  var state = { curves: [{ m: 1.5, k: 4 }, { m: 10, k: 4 }],
+  var state = { curves: [{ m: 1.5, k: 4 }, { m: 5, k: 4 }, { m: 1.5, k: 5 }],
                 points: [{ s: 0.5 }, { s: 2.5 }] };
   try {
     var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -462,7 +462,7 @@
   var XMAX = 6, DECADES = 6;  // x: 0..6 SDs stronger; y: 10^0 .. 10^-6
   var KEY = 'omni-sdw2-state';
 
-  var state = { curves: [{ k: 4, j: 1 }, { k: 5, j: 1 }] };
+  var state = { curves: [{ k: 4, j: 1 }, { k: 5, j: 1 }, { k: 6, j: 1 }] };
   try {
     var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (saved && Array.isArray(saved.curves) && saved.curves.length &&
@@ -724,6 +724,7 @@
 })();
 
 </script>
+
    </body>
    </html>
    
