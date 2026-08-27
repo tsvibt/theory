@@ -10,7 +10,7 @@
    <body>
           <script src="../includes/script.js"></script>
           <p>These widgets are written by Fable.</p>
-<p>First widget:</p>
+<p>First widget: This shows what fraction of the population ($y$ axis, log scale) you have to treat to multiply the total number of people above $k$ SDs by the multiplier, using an intervention with strength along the $x$ axis.</p>
 <div id="sdw"></div>
 <script>
 // Interactive scale-vs-power widget for sd-rarity-table.md.
@@ -426,7 +426,17 @@
 })();
 
 </script>
-<p>Second widget:</p>
+<p>Second widget: A curve with weak intervention at $+k$ SDs shows, at position $x$, how much less you have to scale an intervention that adds $x+k$ SDs vs. an intervention that adds $k$ SDs, to multiply the number of people above the threshold SDs. (The multiplier apparently doesn't matter.) Notice that if you make two curves like:</p>
+<ul>
+<li>above +2 SDs, weak intervention +1</li>
+<li>above +3 SDs, weak intervention +2</li>
+</ul>
+<p>then the curves are very close (though distinct), and if you do</p>
+<ul>
+<li>above +4 SDs, weak intervention +1</li>
+<li>above +5 SDs, weak intervention +2</li>
+</ul>
+<p>then the curves are basically indistinguishable.</p>
 <div id="sdw2"></div>
 <script>
 // Second interactive widget for sd-rarity-table.md: relative-scaling curves.
@@ -712,6 +722,289 @@
         ctx.textAlign = 'left';
         ctx.font = 'bold 13px sans-serif';
         var lbl = '@+' + curve.k + ', weak +' + curve.j;
+        var lx = Math.min(lastPt[0] + 5, W - 6 - ctx.measureText(lbl).width);
+        ctx.fillText(lbl, lx, lastPt[1] - 5);
+        ctx.font = '13px sans-serif';
+      }
+    });
+  }
+
+  buildControls();
+  draw();
+})();
+
+</script>
+<p>Third widget: This is similar to the previous widget. A curve with target $+s$ SDs above the strength of the weak intervention shows, at position $x$, how much less you have to scale an intervention that adds $+x$ more SDs vs. the weak intervention, to get the same multiplier. These curves are an approximation, following the observation from the previous widget. (Basically, this approximation is good when meeting the threshold was quite rare in the first place.)</p>
+<div id="sdw3"></div>
+<script>
+// Third interactive widget for sd-rarity-table.md: one-parameter relative
+// scaling. The doc embeds <div id="sdw3"></div> plus a script tag sourcing
+// this file. (No literal closing script tag appears anywhere in this file —
+// including comments — because the copy-widget-code button inlines it into a
+// script element, where that token would terminate the block.)
+//
+// Model: Tsvi noticed (2026-08-27) that widget 2's curves collapse — (k=4,
+// j=1) draws the same curve as (k=5, j=2). Reason: the widget-2 ratio
+// [P(k-j) - P(k)] / [P(k-j-x) - P(k)] depends on k and j almost only through
+// d = k - j, because P(k) is negligible next to P(k-j). Dropping P(k) gives
+// the exact one-parameter family plotted here:
+//   y = P(d) / P(d - x),   d = how far above the weak intervention's
+//                              strength the target level sits (in SDs).
+// x is how many SDs stronger the strong intervention is; y (log scale, 10^0
+// at top) is the scaling needed relative to the weak intervention for the
+// same effect. Each curve flattens as d - x goes negative (P -> 1): past
+// there, extra strength stops buying scaling — the floor is P(d) itself.
+(function () {
+  var root = document.getElementById('sdw3');
+  if (!root) return;
+
+  // Numerical Recipes erfcc: fractional error < 1.2e-7 everywhere
+  function erfc(x) {
+    var z = Math.abs(x), t = 1 / (1 + z / 2);
+    var ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 +
+      t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 +
+      t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? ans : 2 - ans;
+  }
+  function tail(x) { return 0.5 * erfc(x / Math.SQRT2); }
+
+  var COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#9467bd', '#ff7f0e',
+                '#8c564b', '#e377c2', '#17becf'];
+  var XMAX = 6, DECADES = 6;  // x: 0..6 SDs stronger; y: 10^0 .. 10^-6
+  var KEY = 'omni-sdw3-state';
+
+  var state = { curves: [{ d: 3 }, { d: 4 }, { d: 5 }] };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && Array.isArray(saved.curves) && saved.curves.length &&
+        saved.curves.every(function (c) {
+          return c && typeof c.d === 'number';
+        })) state = { curves: saved.curves };
+  } catch (e) { }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { } }
+
+  // white card, independent of viewer theme (matches the first widget)
+  root.style.margin = '1em 0';
+  root.style.background = '#ffffff';
+  root.style.color = '#1a1a1a';
+  root.style.padding = '12px';
+  root.style.borderRadius = '8px';
+  root.style.border = '1px solid #d0d3d8';
+  root.style.display = 'inline-block';
+  root.style.maxWidth = '100%';
+  var controls = document.createElement('div');
+  var canvas = document.createElement('canvas');
+  canvas.width = 920; canvas.height = 560;
+  canvas.style.maxWidth = '100%';
+  canvas.style.height = 'auto';
+  var saveRow = document.createElement('div');
+  var saveBtn = document.createElement('button');
+  saveBtn.textContent = 'save as .png';
+  saveBtn.style.cursor = 'pointer';
+  saveBtn.title = 'Download the current chart + settings as a PNG';
+  saveRow.appendChild(saveBtn);
+  root.appendChild(saveRow);
+  root.appendChild(controls);
+  root.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+
+  // "screenshot": settings as text lines above the chart, composed offscreen
+  saveBtn.addEventListener('click', function () {
+    var rows = state.curves.map(function (c, i) {
+      return { color: COLORS[i % COLORS.length],
+               text: 'target ' + c.d + ' SD above the weak intervention' };
+    });
+    downloadPng(rows, 'sd-relative-scaling-1param.png');
+  });
+
+  function downloadPng(rows, filename) {
+    var pad = 12, rowH = 20;
+    var oc = document.createElement('canvas');
+    oc.width = canvas.width;
+    oc.height = pad + rows.length * rowH + pad + canvas.height;
+    var octx = oc.getContext('2d');
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0, 0, oc.width, oc.height);
+    octx.font = '13px sans-serif';
+    octx.textAlign = 'left';
+    rows.forEach(function (r, i) {
+      var y = pad + i * rowH + 14, x = pad;
+      if (r.color) {
+        octx.fillStyle = r.color;
+        octx.fillRect(x, y - 11, 12, 12);
+        x += 18;
+      }
+      octx.fillStyle = '#1a1a1a';
+      octx.fillText(r.text, x, y);
+    });
+    octx.drawImage(canvas, 0, pad + rows.length * rowH + pad);
+    oc.toBlob(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    });
+  }
+
+  function styleRow(el) {
+    el.style.display = 'flex'; el.style.alignItems = 'center';
+    el.style.gap = '8px'; el.style.margin = '4px 0'; el.style.flexWrap = 'wrap';
+  }
+  function numInput(value, step) {
+    var n = document.createElement('input');
+    n.type = 'number'; n.step = step; n.value = value;
+    n.style.width = '46px';
+    return n;
+  }
+  function slider(min, max, step, value) {
+    var s = document.createElement('input');
+    s.type = 'range'; s.min = min; s.max = max; s.step = step; s.value = value;
+    s.style.width = '220px';
+    return s;
+  }
+
+  function buildControls() {
+    controls.innerHTML = '';
+    state.curves.forEach(function (curve, i) {
+      var row = document.createElement('div');
+      styleRow(row);
+      var swatch = document.createElement('span');
+      swatch.style.display = 'inline-block';
+      swatch.style.width = '14px'; swatch.style.height = '14px';
+      swatch.style.background = COLORS[i % COLORS.length];
+      swatch.style.borderRadius = '3px';
+      var dLabel = document.createElement('span');
+      dLabel.textContent = 'target above weak intervention by +';
+      var dNum = numInput(curve.d, 0.1);
+      var dSlide = slider(0.5, 7, 0.1, curve.d);
+      var dUnit = document.createElement('span');
+      dUnit.textContent = 'SD';
+      var del = document.createElement('button');
+      del.textContent = '✕';
+      del.title = 'Delete this curve';
+      del.style.cursor = 'pointer';
+      dNum.addEventListener('input', function () {
+        var v = parseFloat(dNum.value);
+        if (!isFinite(v)) return;
+        curve.d = Math.min(7, Math.max(0.5, v)); dSlide.value = curve.d; save(); draw();
+      });
+      dSlide.addEventListener('input', function () {
+        curve.d = parseFloat(dSlide.value); dNum.value = curve.d; save(); draw();
+      });
+      del.addEventListener('click', function () {
+        state.curves.splice(i, 1);
+        if (!state.curves.length) state.curves.push({ d: 3 });
+        save(); buildControls(); draw();
+      });
+      row.appendChild(swatch);
+      row.appendChild(dLabel); row.appendChild(dNum); row.appendChild(dUnit);
+      row.appendChild(dSlide); row.appendChild(del);
+      controls.appendChild(row);
+    });
+
+    var addRow = document.createElement('div');
+    styleRow(addRow);
+    var add = document.createElement('button');
+    add.textContent = 'add curve';
+    add.style.cursor = 'pointer';
+    add.addEventListener('click', function () {
+      var last = state.curves[state.curves.length - 1] || { d: 3 };
+      state.curves.push({ d: Math.min(7, last.d + 1) });
+      save(); buildControls(); draw();
+    });
+    addRow.appendChild(add);
+    controls.appendChild(addRow);
+  }
+
+  // "10^exp" tick label with a real raised exponent, right-aligned at xRight
+  function drawPow10(exp, xRight, yBase, color) {
+    var base = '10', e = String(exp);
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.font = '15px sans-serif';
+    var wBase = ctx.measureText(base).width;
+    ctx.font = '12px sans-serif';
+    var wExp = ctx.measureText(e).width;
+    var x = xRight - wBase - wExp;
+    ctx.font = '15px sans-serif';
+    ctx.fillText(base, x, yBase);
+    ctx.font = '12px sans-serif';
+    ctx.fillText(e, x + wBase + 1, yBase - 7);
+    ctx.font = '13px sans-serif';
+  }
+
+  function draw() {
+    var fg = '#1a1a1a', border = '#d0d3d8', bg = '#ffffff';
+    var W = canvas.width, H = canvas.height;
+    var ml = 70, mr = 120, mt = 34, mb = 48;
+    var pw = W - ml - mr, ph = H - mt - mb;
+    function X(x) { return ml + x / XMAX * pw; }
+    function Y(r) { return mt + (-Math.log10(r)) / DECADES * ph; }
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = '13px sans-serif';
+
+    ctx.lineWidth = 1;
+    for (var x = 0; x <= XMAX; x++) {
+      ctx.strokeStyle = border;
+      ctx.beginPath(); ctx.moveTo(X(x), mt); ctx.lineTo(X(x), mt + ph); ctx.stroke();
+      ctx.fillStyle = fg; ctx.textAlign = 'center';
+      ctx.fillText(String(x), X(x), mt + ph + 18);
+    }
+    for (var d = 0; d <= DECADES; d++) {
+      var r0 = Math.pow(10, -d);
+      ctx.strokeStyle = border;
+      ctx.beginPath(); ctx.moveTo(ml, Y(r0)); ctx.lineTo(ml + pw, Y(r0)); ctx.stroke();
+      drawPow10(-d, ml - 8, Y(r0) + 5, fg);
+      if (d < DECADES) {
+        ctx.strokeStyle = border;
+        ctx.globalAlpha = 0.35;
+        for (var m2 = 2; m2 <= 9; m2++) {
+          var rm = m2 * Math.pow(10, -d - 1);
+          ctx.beginPath(); ctx.moveTo(ml, Y(rm)); ctx.lineTo(ml + pw, Y(rm)); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    ctx.strokeStyle = fg;
+    ctx.strokeRect(ml, mt, pw, ph);
+
+    ctx.fillStyle = fg; ctx.textAlign = 'center';
+    ctx.fillText('x: how many SDs stronger the strong intervention is than the weak one',
+                 ml + pw / 2, H - 10);
+    ctx.save();
+    ctx.translate(16, mt + ph / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('scaling needed, relative to the weak intervention', 0, 0);
+    ctx.restore();
+    ctx.fillText('relative scaling, one parameter: d = target level − weak intervention strength (SDs)',
+                 ml + pw / 2, 18);
+
+    var rmin = Math.pow(10, -DECADES);
+    state.curves.forEach(function (curve, i) {
+      var c = COLORS[i % COLORS.length];
+      var pd = tail(curve.d);
+      ctx.strokeStyle = c; ctx.lineWidth = 2;
+      ctx.beginPath();
+      var lastPt = null;
+      for (var n = 0; n <= 600; n++) {
+        var xv = n / 600 * XMAX;
+        var r = pd / tail(curve.d - xv);
+        var rc = Math.max(r, rmin);
+        var px = X(xv), py = Y(rc);
+        if (n === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        lastPt = [px, py];
+        if (r < rmin) break;  // exited the bottom; stop drawing
+      }
+      ctx.stroke();
+      if (lastPt) {
+        ctx.fillStyle = c;
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 13px sans-serif';
+        var lbl = 'd=+' + curve.d;
         var lx = Math.min(lastPt[0] + 5, W - 6 - ctx.measureText(lbl).width);
         ctx.fillText(lbl, lx, lastPt[1] - 5);
         ctx.font = '13px sans-serif';
