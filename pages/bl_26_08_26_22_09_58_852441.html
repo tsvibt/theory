@@ -13,14 +13,16 @@
 <script>
 // Interactive scale-vs-power widget for sd-rarity-table.md.
 // Rendered by tools/serve_reports.py (which serves this file relatively);
-// the doc embeds <div id="sdw"></div><script src="sd-rarity-widget.js"></script>.
-<p>// Same model as the static figure: treating a fraction f of the population
+// the doc embeds <div id="sdw"></div><script src="sd-rarity-widget.js"><\/script>.
+// (that closing tag is escaped because a literal one — even in a comment —
+// would terminate the block when this file is inlined into a <script> tag)
+// Same model as the static figure: treating a fraction f of the population
 // with an intervention of power s SDs multiplies the count above the target
 // level k by M, where f = (M-1) P(k) / (P(k-s) - P(k)).
 // State (target level + curve multipliers) persists in localStorage.
 (function () {
-var root = document.getElementById('sdw');
-if (!root) return;</p>
+  var root = document.getElementById('sdw');
+  if (!root) return;
 <p>// Numerical Recipes erfcc: fractional error &lt; 1.2e-7 everywhere
 function erfc(x) {
 var z = Math.abs(x), t = 1 / (1 + z / 2);
@@ -49,7 +51,7 @@ state.points = (Array.isArray(saved.points) ? saved.points : [])
 } catch (e) { }
 if (!Array.isArray(state.points)) state.points = [];
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { } }</p>
-<p>// ---- la[118;1:3uyout ----
+<p>// ---- layout ----
 // whole widget on a fixed white card (per Tsvi), independent of viewer theme
 root.style.margin = '1em 0';
 root.style.background = '#ffffff';
@@ -84,7 +86,7 @@ n.type = 'number'; n.step = step; n.value = value;
 n.style.width = (width || 46) + 'px';
 return n;
 }
-function slider(min, max, step, value) {
+[118;1:3u  function slider(min, max, step, value) {
 var s = document.createElement('input');
 s.type = 'range'; s.min = min; s.max = max; s.step = step; s.value = value;
 s.style.width = '220px';
