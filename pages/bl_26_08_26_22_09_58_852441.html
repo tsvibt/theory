@@ -14,13 +14,13 @@
 // Interactive scale-vs-power widget for sd-rarity-table.md.
 // Rendered by tools/serve_reports.py (which serves this file relatively);
 // the doc embeds <div id="sdw"></div><script src="sd-rarity-widget.js"></script>.
-// Same model as the static figure: treating a fraction f of the population
+<p>// Same model as the static figure: treating a fraction f of the population
 // with an intervention of power s SDs multiplies the count above the target
 // level k by M, where f = (M-1) P(k) / (P(k-s) - P(k)).
 // State (target level + curve multipliers) persists in localStorage.
 (function () {
-  var root = document.getElementById('sdw');
-  if (!root) return;
+var root = document.getElementById('sdw');
+if (!root) return;</p>
 <p>// Numerical Recipes erfcc: fractional error &lt; 1.2e-7 everywhere
 function erfc(x) {
 var z = Math.abs(x), t = 1 / (1 + z / 2);
